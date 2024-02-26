@@ -1,12 +1,13 @@
-
-from llama_index.core import Settings, VectorStoreIndex, SimpleDirectoryReader
-from llama_index.llms.openai import OpenAI
+import openai
 import json
+from llama_index import download_loader, GPTSimpleVectorIndex
+from pathlib import Path
 from decouple import config
 import os
 
 # Documentation:  https://llamahub.ai/
 # Reference: Liam Ottley https://www.youtube.com/watch?v=sUSw9MaPm2M
+
 
 # llama index requires the os.environ variable called OPENAI_API_KEY:
 os.environ['OPENAI_API_KEY'] = config('OPENAI_API_KEY')
@@ -20,7 +21,7 @@ class Chatbot:
     def generate_response(self, user_input):
         prompt = "\n".join([f"{message['role']}: {message['content']}" for message in self.chat_history[-5:]])
         prompt += f"\nUser: {user_input}"
-        response = self.index.query(user_input)
+        response = index.query(user_input)
 
         message = {"role": "assistant", "content": response.response}
         self.chat_history.append({"role": "user", "content": user_input})
@@ -39,29 +40,47 @@ class Chatbot:
             json.dump(self.chat_history, f)
 
 
+# ==========WIKIPEDIA PAGE 
+
+
+# WikipediaReader = download_loader("WikipediaReader")
+
+# loader = WikipediaReader()
+# wikidocs = loader.load_data(pages=['Cyclone Freddy'])
+# index = GPTSimpleVectorIndex(wikidocs)
+
+
+# ======GOOGLE DOCS 
+# GoogleDocsReader = download_loader('GoogleDocsReader')
+
+# gdoc_ids = ['1wf-y2pd9C878Oh-FmLH7Q_BQkljdm6TQal-c1pUfrec']
+# loader = GoogleDocsReader()
+# documents = loader.load_data(document_ids=gdoc_ids)
+
+# index = GPTSimpleVectorIndex(documents)
+
+
 # =====PDF====
-# define LLM
+PDFReader = download_loader("PDFReader")
+
+loader = PDFReader()
 # llm = OpenAI(temperature=0.1, model="gpt-4")
-reader = SimpleDirectoryReader(
-    input_files=["./data/joel.pdf"]
-)
-documents = reader.load_data()
-Settings.llm = OpenAI(temperature=0, model="gpt-4")
-index=VectorStoreIndex.from_documents(documents,show_progress=True)
-query_engine=index.as_query_engine()
+documents = loader.load_data(file=Path('./data/data.pdf'))
+index = GPTSimpleVectorIndex(documents)
+
 
 
 
 
 # Swap out your index below for whatever knowledge base you want
-bot = Chatbot(index=query_engine)
+bot = Chatbot(index=index)
 bot.load_chat_history("chat_history.json")
 
 while True:
     user_input = input("You: ")
-    if user_input.lower() in ["bye", "goodbye", exit]:
-        print("Didi: Goodbye!")
+    if user_input.lower() in ["bye", "goodbye"]:
+        print("Bot: Goodbye!")
         bot.save_chat_history("chat_history.json")
         break
     response = bot.generate_response(user_input)
-    print(f"Didi: {response['content']}")
+    print(f"Bot: {response['content']}")
